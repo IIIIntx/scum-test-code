@@ -10,13 +10,17 @@
       <TargetName>channel_cal</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>5060960::V5.06 update 7 (build 960)::.\ARMCC</pCCUsed>
+      <pCCUsed>5060750::V5.06 update 6 (build 750)::ARMCC</pCCUsed>
       <uAC6>0</uAC6>
       <TargetOption>
         <TargetCommonOption>
           <Device>ARMCM0</Device>
           <Vendor>ARM</Vendor>
+<<<<<<< HEAD
           <PackID>ARM.CMSIS.5.9.0</PackID>
+=======
+          <PackID>ARM.CMSIS.5.3.0</PackID>
+>>>>>>> origin/titan/scum_adc_multiple_sensors
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IROM(0x00000000,0x80000) IRAM(0x20000000,0x20000) CPUTYPE("Cortex-M0") CLOCK(10000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -184,9 +188,12 @@
             <hadXRAM>0</hadXRAM>
             <uocXRam>0</uocXRam>
             <RvdsVP>0</RvdsVP>
+<<<<<<< HEAD
             <RvdsMve>0</RvdsMve>
             <RvdsCdeCp>0</RvdsCdeCp>
             <nBranchProt>0</nBranchProt>
+=======
+>>>>>>> origin/titan/scum_adc_multiple_sensors
             <hadIRAM2>0</hadIRAM2>
             <hadIROM2>0</hadIROM2>
             <StupSel>8</StupSel>
@@ -326,7 +333,7 @@
             <wLevel>2</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
-            <uC99>0</uC99>
+            <uC99>1</uC99>
             <uGnu>0</uGnu>
             <useXO>0</useXO>
             <v6Lang>1</v6Lang>
@@ -353,7 +360,7 @@
             <NoWarn>0</NoWarn>
             <uSurpInc>0</uSurpInc>
             <useXO>0</useXO>
-            <ClangAsOpt>4</ClangAsOpt>
+            <uClangAs>0</uClangAs>
             <VariousControls>
               <MiscControls></MiscControls>
               <Define></Define>
@@ -388,6 +395,16 @@
               <FileName>channel_cal.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\channel_cal.c</FilePath>
+            </File>
+            <File>
+              <FileName>channel_cal_main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\channel_cal_main.c</FilePath>
+            </File>
+            <File>
+              <FileName>channel_cal.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\channel_cal.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -484,6 +501,26 @@
               <FileType>1</FileType>
               <FilePath>..\..\scm3c_hw_interface.c</FilePath>
             </File>
+            <File>
+              <FileName>ieee_802_15_4.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\ieee_802_15_4.h</FilePath>
+            </File>
+            <File>
+              <FileName>ieee_802_15_4.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\ieee_802_15_4.c</FilePath>
+            </File>
+            <File>
+              <FileName>tuning.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\tuning.c</FilePath>
+            </File>
+            <File>
+              <FileName>tuning.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\tuning.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
@@ -538,15 +575,5 @@
       </file>
     </files>
   </RTE>
-
-  <LayerInfo>
-    <Layers>
-      <Layer>
-        <LayName>&lt;Project Info&gt;</LayName>
-        <LayTarg>0</LayTarg>
-        <LayPrjMark>1</LayPrjMark>
-      </Layer>
-    </Layers>
-  </LayerInfo>
 
 </Project>

@@ -16,7 +16,11 @@
         <TargetCommonOption>
           <Device>ARMCM0</Device>
           <Vendor>ARM</Vendor>
+<<<<<<< HEAD
           <PackID>ARM.CMSIS.5.9.0</PackID>
+=======
+          <PackID>ARM.CMSIS.5.7.0</PackID>
+>>>>>>> origin/titan/scum_adc_multiple_sensors
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IROM(0x00000000,0x80000) IRAM(0x20000000,0x20000) CPUTYPE("Cortex-M0") CLOCK(10000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -186,7 +190,10 @@
             <RvdsVP>0</RvdsVP>
             <RvdsMve>0</RvdsMve>
             <RvdsCdeCp>0</RvdsCdeCp>
+<<<<<<< HEAD
             <nBranchProt>0</nBranchProt>
+=======
+>>>>>>> origin/titan/scum_adc_multiple_sensors
             <hadIRAM2>0</hadIRAM2>
             <hadIROM2>0</hadIROM2>
             <StupSel>8</StupSel>

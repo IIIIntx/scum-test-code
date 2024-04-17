@@ -10,13 +10,21 @@
       <TargetName>hello_world</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
+<<<<<<< HEAD
       <pCCUsed>5060183::V5.06 update 2 (build 183)::ARMCC</pCCUsed>
+=======
+      <pCCUsed>5060750::V5.06 update 6 (build 750)::ARMCC</pCCUsed>
+>>>>>>> origin/titan/scum_adc_multiple_sensors
       <uAC6>0</uAC6>
       <TargetOption>
         <TargetCommonOption>
           <Device>ARMCM0</Device>
           <Vendor>ARM</Vendor>
+<<<<<<< HEAD
           <PackID>ARM.CMSIS.5.9.0</PackID>
+=======
+          <PackID>ARM.CMSIS.5.3.0</PackID>
+>>>>>>> origin/titan/scum_adc_multiple_sensors
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IROM(0x00000000,0x80000) IRAM(0x20000000,0x20000) CPUTYPE("Cortex-M0") CLOCK(10000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -326,7 +334,11 @@
             <wLevel>2</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
+<<<<<<< HEAD
             <uC99>0</uC99>
+=======
+            <uC99>1</uC99>
+>>>>>>> origin/titan/scum_adc_multiple_sensors
             <uGnu>0</uGnu>
             <useXO>0</useXO>
             <v6Lang>1</v6Lang>
@@ -353,7 +365,11 @@
             <NoWarn>0</NoWarn>
             <uSurpInc>0</uSurpInc>
             <useXO>0</useXO>
+<<<<<<< HEAD
             <ClangAsOpt>1</ClangAsOpt>
+=======
+            <uClangAs>0</uClangAs>
+>>>>>>> origin/titan/scum_adc_multiple_sensors
             <VariousControls>
               <MiscControls></MiscControls>
               <Define></Define>
