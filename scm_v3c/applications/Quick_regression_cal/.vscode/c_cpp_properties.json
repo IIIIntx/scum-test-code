@@ -3,10 +3,13 @@
         {
             "name": "ble_freq_sweep",
             "includePath": [
-                "d:\\OneDrive - HKUST (Guangzhou)\\SchoolTasks\\SCuMRobot\\SCuM_BLEorigin\\scum-test-code\\scm_v3c\\",
+                "d:\\SchoolTasks\\SCuMRobot\\SCuM_BLEorigin\\scum-test-code\\scm_v3c\\",
                 "D:\\Keil_v5\\ARM\\ARMCC\\include",
-                "d:\\OneDrive - HKUST (Guangzhou)\\SchoolTasks\\SCuMRobot\\SCuM_BLEorigin\\scum-test-code\\scm_v3c\\applications\\Quick_regression_cal",
-                "d:\\OneDrive - HKUST (Guangzhou)\\SchoolTasks\\SCuMRobot\\SCuM_BLEorigin\\scum-test-code\\scm_v3c"
+                "D:\\Keil_v5\\ARM\\ARMCC\\include\\arm_linux",
+                "D:\\Keil_v5\\ARM\\ARMCC\\include\\arm_linux_compat",
+                "D:\\Keil_v5\\ARM\\ARMCC\\include\\rw",
+                "d:\\SchoolTasks\\SCuMRobot\\SCuM_BLEorigin\\scum-test-code\\scm_v3c\\applications\\Quick_regression_cal",
+                "d:\\SchoolTasks\\SCuMRobot\\SCuM_BLEorigin\\scum-test-code\\scm_v3c"
             ],
             "defines": [
                 "__CC_ARM",

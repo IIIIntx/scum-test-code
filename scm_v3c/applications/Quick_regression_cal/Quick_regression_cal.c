@@ -119,10 +119,10 @@ app_vars_t app_vars;
 
 double    freqTargetList[40] = {1.252, 1.253, 1.254, 1.255, 1.256, 1.257, 1.258, 1.259, 1.260, 1.261, 1.263, 1.265, 1.266, 1.267, 1.268, 1.269, 1.270, 1.271, 1.272, 1.273, 1.274, 1.275, 1.276, 1.277, 1.278, 1.279, 1.280, 1.281, 1.282, 1.283, 1.284, 1.285, 1.286, 1.288, 1.289, 1.290, 1.291, 1.251, 1.264, 1.292};
 
-double    freqRXTargetList[16] = {1.251 ,1.254 ,1.256 ,1.259 ,1.261 ,1.264 ,1.267 ,1.269 ,1.272 ,1.274 ,1.277 ,1.280 ,1.282 ,1.285 ,1.288 ,1.290  };
+double    freqRXTargetList[16] = {1.251 ,1.254 ,1.256 ,1.259 ,1.261 ,1.264 ,1.267 ,1.269 ,1.272 ,1.274 ,1.277 ,1.280 ,1.282 ,1.285 ,1.288 ,1.290  }; //3MHz lower than the middle frequency
 
 uint16_t  channelHopSequence[1] = {0};
-uint16_t  LCsweepCode = (25U << 10) | (15U << 5) | (15U); // start at coarse=20, mid=0, fine=15
+uint16_t  LCsweepCode = (20U << 10) | (15U << 5) | (15U); // start at coarse=20, mid=0, fine=15
 
 
 //=========================== prototypes ======================================
@@ -218,7 +218,7 @@ int main(void) {
     //set a initial channel
     //Target as a frequency index in the list
     channelTarget = channelHopSequence[app_vars.channelHopIndex];
-    channelRXTarget = 16-11;
+    channelRXTarget = 11-11;
     //open issue================================================
     app_vars.roughEstimateRequireFlag = 1;
 
@@ -950,32 +950,33 @@ double Solve_Equation(double para_matrix[][1], double Inv_equ_c) {
     int intParaMatrix[2][1] = {0};
     double x_matrix_inverse_temp[2][2] = {0};
 
-
     Inv_equ_c =  app_vars.freq_abs - Inv_equ_c;
     Inv_equ_c = Inv_equ_c * SCALEFACTOR;
     intParaMatrix[0][0] = (int)(para_matrix[0][0]*SCALEFACTOR);
     intParaMatrix[1][0] = (int)(para_matrix[1][0]*SCALEFACTOR);
-    // printf("intParaMatrix:%d,%d\r\n",intParaMatrix[0][0],intParaMatrix[1][0]);
-    delay_tx();
+    printf("intParaMatrix:%d,%d\r\n",intParaMatrix[0][0],intParaMatrix[1][0]);
+    // delay_tx();
     
     //同样使用x_matrix_inverse帮助计算存储中间值，以减少内存
     intXMatrixInverse[0][0] = intParaMatrix[1][0]*intParaMatrix[1][0];
     intXMatrixInverse[0][1] = 4 * intParaMatrix[0][0]*Inv_equ_c;
     intXMatrixInverse[1][0] = intXMatrixInverse[0][0] + intXMatrixInverse[0][1];
     intXMatrixInverse[1][1] = sqrt(intXMatrixInverse[1][0]);
-    // printf("x_matrix_inverse:%d,%d,%d,%d\r\n",intXMatrixInverse[0][0],intXMatrixInverse[0][1], intXMatrixInverse[1][0],intXMatrixInverse[1][1]);    
-    delay_tx();
+    printf("x_matrix_inverse:%d,%d,%d,%d\r\n",intXMatrixInverse[0][0],intXMatrixInverse[0][1], intXMatrixInverse[1][0],intXMatrixInverse[1][1]);    
+    // delay_tx();
     x_matrix_inverse_temp[1][1] = (float)intXMatrixInverse[1][1] / SCALEFACTOR;
 
     //x_matrix_inverse[0][0],[0][1],[1][0]重新释放 
     x_matrix_inverse_temp[0][0] = 2*para_matrix[0][0];
+    delay_tx();
     x_matrix_inverse_temp[0][1] = 1/x_matrix_inverse_temp[0][0];
     x_matrix_inverse_temp[1][0] = x_matrix_inverse_temp[0][1] * (-para_matrix[1][0]+x_matrix_inverse_temp[1][1]);
+    // delay_tx();
     // printf("x_matrix_inverse:%f,%f,%f,%f\r\n",x_matrix_inverse[0][0],x_matrix_inverse[0][1], x_matrix_inverse[1][0],x_matrix_inverse[1][1]);
     //只需要x大于0的根
     //在此处直接乘10，看除10的余数大于5还是小于5
     x_matrix_inverse_temp[0][0] = x_matrix_inverse_temp[1][0] * 10; 
-    delay_tx();   
+    // delay_tx();   
     printf("solve = %f\r\n", x_matrix_inverse_temp[1][0]);
     return x_matrix_inverse_temp[0][0], x_matrix_inverse_temp[1][0];
 }
@@ -1216,71 +1217,71 @@ void __ReceivePacket(uint16_t channelRXTarget){
     uint8_t cfg_mid;
     int cfg_fine;
     
-    app_vars.radioModeFlag = 0;
+    // app_vars.radioModeFlag = 0;
 
-    course_estimate(channelRXTarget);
-    __PresiseEstimate(channelRXTarget);
+    // course_estimate(channelRXTarget);
+    // __PresiseEstimate(channelRXTarget);
 
-    cfg_course = app_vars.rx_coarse_p1;
-    for(offset = -RANGE_RX; offset <= RANGE_RX; offset++){
-        cfg_fine = app_vars.rx_fine_p1 + offset;
-        cfg_mid = app_vars.rx_mid_p1;
-        if(cfg_fine<0){
-            cfg_fine = 31+offset;
-            cfg_mid -= 1;
-        }else if(cfg_fine>=32){
-            cfg_fine = offset;
-            cfg_mid += 1;
-        }   
-        printf(
-            "%d.%d.%d\r\n", 
-            cfg_course,cfg_mid,cfg_fine
-        );
+    // cfg_course = app_vars.rx_coarse_p1;
+    // for(offset = -RANGE_RX; offset <= RANGE_RX; offset++){
+    //     cfg_fine = app_vars.rx_fine_p1 + offset;
+    //     cfg_mid = app_vars.rx_mid_p1;
+    //     if(cfg_fine<0){
+    //         cfg_fine = 31+offset;
+    //         cfg_mid -= 1;
+    //     }else if(cfg_fine>=32){
+    //         cfg_fine = offset;
+    //         cfg_mid += 1;
+    //     }   
+    //     printf(
+    //         "%d.%d.%d\r\n", 
+    //         cfg_course,cfg_mid,cfg_fine
+    //     );
         
-        while(app_vars.rxFrameStarted == true);
-        radio_rfOff();
-        LC_FREQCHANGE(cfg_course, cfg_mid, cfg_fine);
-        delay_lc_setup();
-        for (i=0;i<NUMPKT_PER_CFG_RX;i++) {
-            // __FreqSweep();
-            __RxRegSet();    
-            rftimer_setCompareIn(rftimer_readCounter()+TIMER_PERIOD_RX);
-            app_vars.changeConfigFlag = false;
-            while (app_vars.changeConfigFlag==false);
-        }
+    //     while(app_vars.rxFrameStarted == true);
+    //     radio_rfOff();
+    //     LC_FREQCHANGE(cfg_course, cfg_mid, cfg_fine);
+    //     delay_lc_setup();
+    //     for (i=0;i<NUMPKT_PER_CFG_RX;i++) {
+    //         // __FreqSweep();
+    //         __RxRegSet();    
+    //         rftimer_setCompareIn(rftimer_readCounter()+TIMER_PERIOD_RX);
+    //         app_vars.changeConfigFlag = false;
+    //         while (app_vars.changeConfigFlag==false);
+    //     }
         
         
-    }
-    //p2
-    cfg_course = app_vars.rx_coarse_p2;
-    for(offset = -RANGE_RX; offset <= RANGE_RX; offset++){
-        cfg_fine = app_vars.rx_fine_p2 + offset;
-        cfg_mid = app_vars.rx_mid_p2;
-        if(cfg_fine<0){
-            cfg_fine = 31+offset;
-            cfg_mid -= 1;
-        }else if(cfg_fine>=32){
-            cfg_fine = offset;
-            cfg_mid += 1;
-        }   
-        printf(
-            "%d.%d.%d\r\n", 
-            cfg_course,cfg_mid,cfg_fine
-        );
+    // }
+    // //p2
+    // cfg_course = app_vars.rx_coarse_p2;
+    // for(offset = -RANGE_RX; offset <= RANGE_RX; offset++){
+    //     cfg_fine = app_vars.rx_fine_p2 + offset;
+    //     cfg_mid = app_vars.rx_mid_p2;
+    //     if(cfg_fine<0){
+    //         cfg_fine = 31+offset;
+    //         cfg_mid -= 1;
+    //     }else if(cfg_fine>=32){
+    //         cfg_fine = offset;
+    //         cfg_mid += 1;
+    //     }   
+    //     printf(
+    //         "%d.%d.%d\r\n", 
+    //         cfg_course,cfg_mid,cfg_fine
+    //     );
         
-        while(app_vars.rxFrameStarted == true);
-        radio_rfOff();
-        LC_FREQCHANGE(cfg_course, cfg_mid, cfg_fine);
-        delay_lc_setup();
-        for (i=0;i<NUMPKT_PER_CFG_RX;i++) {
-            // __FreqSweep();
-            __RxRegSet();    
-            radio_rxNow();
-            rftimer_setCompareIn(rftimer_readCounter()+TIMER_PERIOD_RX);
-            app_vars.changeConfigFlag = false;
-            while (app_vars.changeConfigFlag==false);
-        }
-    }
+    //     while(app_vars.rxFrameStarted == true);
+    //     radio_rfOff();
+    //     LC_FREQCHANGE(cfg_course, cfg_mid, cfg_fine);
+    //     delay_lc_setup();
+    //     for (i=0;i<NUMPKT_PER_CFG_RX;i++) {
+    //         // __FreqSweep();
+    //         __RxRegSet();    
+    //         radio_rxNow();
+    //         rftimer_setCompareIn(rftimer_readCounter()+TIMER_PERIOD_RX);
+    //         app_vars.changeConfigFlag = false;
+    //         while (app_vars.changeConfigFlag==false);
+    //     }
+    // }
 
     while(app_vars.rxFrameStarted == true);
     radio_rfOff();
