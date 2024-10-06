@@ -967,3 +967,7 @@ void   __SwitchSettingTransmit(void){
     app_vars.sendDone = false;
     while (app_vars.sendDone==false);
 }
+
+void  __TempCompensation(){
+    //if \delta RC count > thershold, need to re-calculate
+}
