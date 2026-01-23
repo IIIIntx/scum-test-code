@@ -21,9 +21,9 @@
 
 #define TXPOWER             0xD8    // used for ibeacon pkt
 
-#define NUMPKT_PER_CFG      10
+#define NUMPKT_PER_CFG      5
 #define STEPS_PER_CONFIG    32
-#define TIMER_PERIOD        2000  // 500 = 1ms@500kHz
+#define TIMER_PERIOD        1000  // 500 = 1ms@500kHz
 
 // only this coarse settings are swept, 
 // channel 37 and 0 are known within the setting scope of coarse=24
@@ -47,7 +47,7 @@
 #endif
 
 #ifdef HS_3
-    #define MID_START   18
+    #define MID_START   0
     #define MID_END     31
 #endif
 
@@ -95,14 +95,16 @@ int main(void) {
 
     uint32_t calc_crc;
 
+    uint8_t cfg_coarse;
     uint8_t cfg_mid;
     uint8_t cfg_fine;
-    
+
     uint8_t i;
     uint8_t j;
     uint8_t offset;
-    
+
     uint32_t t;
+    uint32_t count_2M, count_LC, count_adc;
 
     memset(&app_vars, 0, sizeof(app_vars_t));
 
@@ -182,12 +184,16 @@ int main(void) {
         // loop through all configuration
         
         // customize coarse, mid, fine values to change the sweeping range
+        for (cfg_coarse = 19; cfg_coarse < 23; cfg_coarse++) {
         for (cfg_mid=MID_START;cfg_mid<MID_END;cfg_mid++) {
             for (cfg_fine=0;cfg_fine<32;cfg_fine+=1) {
-                
+
+                // Read LC count
+                // read_counters_3B(&count_2M, &count_LC, &count_adc);
+
                 printf(
-                    "coarse=%d, middle=%d, fine=%d\r\n", 
-                    CFG_COARSE,cfg_mid,cfg_fine
+                    "%d,%d,%d\r\n",
+                    cfg_coarse, cfg_mid, cfg_fine
                 );
                 
                 for (i=0;i<NUMPKT_PER_CFG;i++) {
@@ -197,7 +203,7 @@ int main(void) {
 //                    app_vars.pdu_len = prepare_freq_setting_pdu(CFG_COARSE, cfg_mid, cfg_fine);
 //                    ble_prepare_packt(&app_vars.pdu[0], app_vars.pdu_len);
                     
-                    LC_FREQCHANGE(CFG_COARSE, cfg_mid, cfg_fine);
+                    LC_FREQCHANGE(cfg_coarse, cfg_mid, cfg_fine);
                     
                     delay_lc_setup();
                     
@@ -217,6 +223,7 @@ int main(void) {
                 }
             }
         }
+    }
     }
 }
 

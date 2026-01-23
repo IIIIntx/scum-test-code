@@ -182,14 +182,14 @@ void ble_prepare_packt(uint8_t* pdu, uint8_t pdu_length){
     
     ble_append_crc(&pdu[0], pdu_length);
     
-//    printf("pkt : ");
-//    for (j=0;j<pdu_length;j++) {
-//        printf("%x ", flipChar(pdu[j]));
-//    }
-//    printf("%x ", (pdu[j++]));
-//    printf("%x ", (pdu[j++]));
-//    printf("%x ", (pdu[j++]));
-//    printf("\r\n");
+   printf("pkt : ");
+   for (j=0;j<pdu_length;j++) {
+       printf("%x ", flipChar(pdu[j]));
+   }
+   printf("%x ", (pdu[j++]));
+   printf("%x ", (pdu[j++]));
+   printf("%x ", (pdu[j++]));
+   printf("\r\n");
     
     ble_whitening(&pdu[0], pdu_length + CRC_LENGTH);
     
