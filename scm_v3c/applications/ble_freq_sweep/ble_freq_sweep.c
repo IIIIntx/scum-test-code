@@ -4,6 +4,7 @@
 */
 
 #include <string.h>
+#include <gpio.h>
 
 #include "scm3c_hw_interface.h"
 #include "memory_map.h"
@@ -178,6 +179,12 @@ int main(void) {
 		
 		//test frame in Nordic
 		ble_gen_packet();
+		
+		GPO_enables(0xFFFF);
+		GPO_control(10,10,8,0);
+		analog_scan_chain_write();
+		analog_scan_chain_load();
+    
     
     while (1) {
         
@@ -188,6 +195,7 @@ int main(void) {
         for (cfg_mid=MID_START;cfg_mid<MID_END;cfg_mid++) {
             for (cfg_fine=0;cfg_fine<32;cfg_fine+=1) {
 
+             
                 // Read LC count
                 // read_counters_3B(&count_2M, &count_LC, &count_adc);
 
