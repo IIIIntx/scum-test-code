@@ -10,7 +10,7 @@
       <TargetName>ble_tx</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>5060960::V5.06 update 7 (build 960)::.\ARM_Compoler_5.06u7</pCCUsed>
+      <pCCUsed>5060960::V5.06 update 7 (build 960)::.\ARMCC</pCCUsed>
       <uAC6>0</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -89,7 +89,7 @@
             <nStopA1X>0</nStopA1X>
             <nStopA2X>0</nStopA2X>
           </AfterMake>
-          <SelectedForBatchBuild>0</SelectedForBatchBuild>
+          <SelectedForBatchBuild>1</SelectedForBatchBuild>
           <SVCSIdString></SVCSIdString>
         </TargetCommonOption>
         <CommonProperty>
@@ -326,7 +326,7 @@
             <wLevel>2</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
-            <uC99>0</uC99>
+            <uC99>1</uC99>
             <uGnu>0</uGnu>
             <useXO>0</useXO>
             <v6Lang>1</v6Lang>
@@ -371,7 +371,7 @@
             <TextAddressRange>0x00000000</TextAddressRange>
             <DataAddressRange>0x20000000</DataAddressRange>
             <pXoBase></pXoBase>
-            <ScatterFile>freq_sweep_rx.sct</ScatterFile>
+            <ScatterFile>ble_tx.sct</ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
             <Misc></Misc>
@@ -388,6 +388,16 @@
               <FileName>ble_tx.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\ble_tx.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\ble.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\ble.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -485,14 +495,14 @@
               <FilePath>..\..\scm3c_hw_interface.c</FilePath>
             </File>
             <File>
-              <FileName>ble.c</FileName>
+              <FileName>tuning.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\ble.c</FilePath>
+              <FilePath>..\..\tuning.c</FilePath>
             </File>
             <File>
-              <FileName>ble.h</FileName>
+              <FileName>tuning.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\..\ble.h</FilePath>
+              <FilePath>..\..\tuning.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -548,5 +558,14 @@
       </file>
     </files>
   </RTE>
+
+  <LayerInfo>
+    <Layers>
+      <Layer>
+        <LayName>ble_tx</LayName>
+        <LayPrjMark>1</LayPrjMark>
+      </Layer>
+    </Layers>
+  </LayerInfo>
 
 </Project>

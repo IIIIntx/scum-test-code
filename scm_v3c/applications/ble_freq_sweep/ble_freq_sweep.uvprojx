@@ -10,7 +10,7 @@
       <TargetName>ble_freq_sweep</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>5060960::V5.06 update 7 (build 960)::.\ARM_Compoler_5.06u7</pCCUsed>
+      <pCCUsed>5060960::V5.06 update 7 (build 960)::.\ARMCC</pCCUsed>
       <uAC6>0</uAC6>
       <TargetOption>
         <TargetCommonOption>
@@ -326,7 +326,7 @@
             <wLevel>2</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
-            <uC99>0</uC99>
+            <uC99>1</uC99>
             <uGnu>0</uGnu>
             <useXO>0</useXO>
             <v6Lang>1</v6Lang>
@@ -493,6 +493,16 @@
               <FileName>ble.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\..\ble.h</FilePath>
+            </File>
+            <File>
+              <FileName>tuning.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\tuning.c</FilePath>
+            </File>
+            <File>
+              <FileName>tuning.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\tuning.h</FilePath>
             </File>
           </Files>
         </Group>

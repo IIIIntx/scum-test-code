@@ -5,7 +5,12 @@
 
   <Header>### uVision Project, (C) Keil Software</Header>
 
-  <WorkspaceName>D:\OneDrive - HKUST (Guangzhou)\SchoolTasks\SCuMRobot\origin\scum-test-code\scm_v3c\applications\all_projects.uvmpw</WorkspaceName>
+  <WorkspaceName>WorkSpace</WorkspaceName>
+
+  <project>
+    <PathAndName>.\sensor_adc\sensor_adc.uvprojx</PathAndName>
+    <NodeIsCheckedInBatchBuild>1</NodeIsCheckedInBatchBuild>
+  </project>
 
   <project>
     <PathAndName>.\freq_sweep_rx_simple\freq_sweep_rx_simple.uvprojx</PathAndName>

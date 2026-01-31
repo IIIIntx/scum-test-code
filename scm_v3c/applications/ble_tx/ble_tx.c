@@ -1,89 +1,96 @@
-/**
-\brief This program lets SCuM transmit BLE packets.
-*/
-
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "scm3c_hw_interface.h"
-#include "memory_map.h"
 #include "ble.h"
-#include "rftimer.h"
-#include "radio.h"
+#include "memory_map.h"
 #include "optical.h"
+#include "radio.h"
+#include "rftimer.h"
+#include "scm3c_hw_interface.h"
+#include "tuning.h"
 
-//=========================== defines =========================================
+// If true, sweep through all fine codes.
+#define BLE_TX_SWEEP_FINE true
+//  #define BLE_TX_SWEEP_FINE false
+#define BLE_CALIBRATE_LC true
 
-#define CRC_VALUE           (*((unsigned int *) 0x0000FFFC))
-#define CODE_LENGTH         (*((unsigned int *) 0x0000FFF8))
+// BLE TX period in milliseconds.
+#define BLE_TX_PERIOD_MS 1000  // milliseconds
 
-#define TIMER_PERIOD        50000             ///< 500 = 1ms@500kHz
+#define BLE_SEND_CHANNEL 0
 
-#define BLE_CALIBRATE_LC    false
-#define BLE_SWEEP_FINE      true
+// BLE TX tuning code.
+static tuning_code_t g_ble_tx_tuning_code = {
+    .coarse = 22,
+    .mid = 28,
+    .fine = 19,
+};
 
-//=========================== variables =======================================
+// BLE TX trigger.
+static bool g_ble_tx_trigger = true;
 
-typedef struct {
-                uint8_t         tx_coarse;
-                uint8_t         tx_mid;
-                uint8_t         tx_fine;
+extern optical_vars_t optical_vars;
 
-                bool            txNext;
-} app_vars_t;
+// Transmit BLE packets.
+static inline void ble_tx_trigger(void) {
+#if BLE_TX_SWEEP_FINE
+    for (uint8_t tx_fine_code = TUNING_MIN_CODE;
+         tx_fine_code <= TUNING_MAX_CODE; ++tx_fine_code) {
+        g_ble_tx_tuning_code.fine = tx_fine_code;
+        tuning_tune_radio(&g_ble_tx_tuning_code);
+        printf("Transmitting BLE packet on %u.%u.%u.\n",
+               g_ble_tx_tuning_code.coarse, g_ble_tx_tuning_code.mid,
+               g_ble_tx_tuning_code.fine);
 
-app_vars_t app_vars;
+        // Wait for the frequency to settle.
+        for (uint32_t t = 0; t < 5000; ++t);
 
-//=========================== prototypes ======================================
+        ble_transmit();
+    }
+#else   // !BLE_TX_SWEEP_FINE
+    tuning_tune_radio(&g_ble_tx_tuning_code);
+    printf("Transmitting BLE packet on %u.%u.%u.\n",
+           g_ble_tx_tuning_code.coarse, g_ble_tx_tuning_code.mid,
+           g_ble_tx_tuning_code.fine);
 
-void     cb_timer(void);
-void     transmit_ble_packet(void);
+    // Wait for frequency to settle.
+    for (uint32_t t = 0; t < 5000; ++t);
 
-//=========================== main ============================================
+    ble_transmit();
+#endif  // BLE_TX_SWEEP_FINE
+}
+
+static void ble_tx_rftimer_callback(void) {
+    // Trigger a BLE TX.
+    g_ble_tx_trigger = true;
+}
 
 int main(void) {
-
-    uint32_t calc_crc;
-
-    memset(&app_vars, 0, sizeof(app_vars_t));
-
-    printf("Initializing...");
-
-    // Set up mote configuration
-    // This function handles all the analog scan chain setup
     initialize_mote();
+
+    // Initialize BLE TX.
+    printf("Initializing BLE TX.\n");
+    ble_init();
     ble_init_tx();
+		//ble_set_channel(BLE_SEND_CHANNEL);
+		//const char* my_data = "bcum";
+    //ble_set_data((const uint8_t*)my_data);
 
-    rftimer_set_callback(cb_timer);
+    // Configure the RF timer.
+    rftimer_set_callback_by_id(ble_tx_rftimer_callback, 7);
+    rftimer_enable_interrupts();
+    rftimer_enable_interrupts_by_id(7);
 
-    // Disable interrupts for the radio and rftimer
-    radio_disable_interrupts();
-    rftimer_disable_interrupts();
+    analog_scan_chain_write();
+    analog_scan_chain_load();
 
-    // Check CRC to ensure there were no errors during optical programming
-    printf("\r\n-------------------\r\n");
-    printf("Validating program integrity...");
-
-    calc_crc = crc32c(0x0000,CODE_LENGTH);
-
-    if (calc_crc == CRC_VALUE){
-        printf("CRC OK\r\n");
-    } else {
-        printf("\r\nProgramming Error - CRC DOES NOT MATCH - Halting Execution\r\n");
-        while(1);
-    }
-
-    // Debug output
-    // printf("\r\nCode length is %u bytes",code_length);
-    // printf("\r\nCRC calculated by SCM is: 0x%X",calc_crc);
-
-    //printf("done\r\n");
-
-    // After bootloading the next thing that happens is frequency calibration using optical
-    printf("Calibrating frequencies...\r\n");
-
-    // Initial frequency calibration will tune the frequencies for HCLK, the RX/TX chip clocks, and the LO
+    crc_check();
+    perform_calibration();
 
 #if BLE_CALIBRATE_LC
+		optical_vars.optical_cal_finished = false;
     optical_enableLCCalibration();
 
     // Turn on LO, DIV, PA, and IF
@@ -100,65 +107,35 @@ int main(void) {
     optical_enable();
 
     // Wait for optical cal to finish
-    while(!optical_getCalibrationFinished());
+    while (!optical_getCalibrationFinished());
 
     printf("Cal complete\r\n");
 
     // Disable static divider to save power
-		divProgram(480, 0, 0);
+    divProgram(480, 0, 0);
 
     // Configure coarse, mid, and fine codes for TX.
 #if BLE_CALIBRATE_LC
-    app_vars.tx_coarse = optical_getLCCoarse();
-    app_vars.tx_mid = optical_getLCMid();
-    app_vars.tx_fine = optical_getLCFine();
+    g_ble_tx_tuning_code.coarse = optical_getLCCoarse();
+    g_ble_tx_tuning_code.mid = optical_getLCMid();
+    g_ble_tx_tuning_code.fine = optical_getLCFine();
 #else
     // CHANGE THESE VALUES AFTER LC CALIBRATION.
-    app_vars.tx_coarse = 24;
-    app_vars.tx_mid = 11;
-    app_vars.tx_fine = 23;
+    app_vars.tx_coarse = 22;
+    app_vars.tx_mid = 28;
+    app_vars.tx_fine = 15;
 #endif
+		
+    // Generate a BLE packet.
+    ble_generate_packet();
+		//ble_generate_test_packet();
 
-    ble_gen_packet();
-
-    while (1) {
-        transmit_ble_packet();
-        rftimer_setCompareIn(rftimer_readCounter() + TIMER_PERIOD);
-        app_vars.txNext = false;
-        while (!app_vars.txNext);
+    while (true) {
+        if (g_ble_tx_trigger) {
+            printf("Triggering BLE TX.\n");
+            ble_tx_trigger();
+            g_ble_tx_trigger = false;
+            delay_milliseconds_asynchronous(BLE_TX_PERIOD_MS, 7);
+        }
     }
-}
-
-//=========================== public ==========================================
-
-//=========================== private =========================================
-
-void    cb_timer(void) {
-    app_vars.txNext = true;
-}
-
-void transmit_ble_packet(void) {
-    int t, tx_fine, tx_mid, times;
-
-#if BLE_SWEEP_FINE
-	  for (tx_mid = 0; tx_mid < 20; ++tx_mid){
-			for (tx_fine = 0; tx_fine < 32; ++tx_fine) {
-					LC_FREQCHANGE(app_vars.tx_coarse, tx_mid, tx_fine);
-					printf("Transmitting on %u %u %u\n", app_vars.tx_coarse, tx_mid, tx_fine);
-					for(times = 0; times <10; ++times){
-						// Wait for frequency to settle.
-						for (t = 0; t < 5000; ++t);
-						ble_transmit();
-					}
-			}
-		}
-#else
-    LC_FREQCHANGE(app_vars.tx_coarse, app_vars.tx_mid, app_vars.tx_fine);
-    printf("Transmitting on %u %u %u\n", app_vars.tx_coarse, app_vars.tx_mid, app_vars.tx_fine);
-
-    // Wait for frequency to settle.
-    for (t = 0; t < 5000; ++t);
-
-    ble_transmit();
-#endif
 }

@@ -16,7 +16,7 @@
         <TargetCommonOption>
           <Device>ARMCM0</Device>
           <Vendor>ARM</Vendor>
-          <PackID>ARM.CMSIS.5.9.0</PackID>
+          <PackID>ARM.CMSIS.5.7.0</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IROM(0x00000000,0x80000) IRAM(0x20000000,0x20000) CPUTYPE("Cortex-M0") CLOCK(10000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -186,7 +186,6 @@
             <RvdsVP>0</RvdsVP>
             <RvdsMve>0</RvdsMve>
             <RvdsCdeCp>0</RvdsCdeCp>
-            <nBranchProt>0</nBranchProt>
             <hadIRAM2>0</hadIRAM2>
             <hadIROM2>0</hadIROM2>
             <StupSel>8</StupSel>
@@ -483,16 +482,6 @@
               <FileName>scm3c_hw_interface.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\scm3c_hw_interface.c</FilePath>
-            </File>
-            <File>
-              <FileName>ble.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\ble.c</FilePath>
-            </File>
-            <File>
-              <FileName>ble.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\ble.h</FilePath>
             </File>
           </Files>
         </Group>

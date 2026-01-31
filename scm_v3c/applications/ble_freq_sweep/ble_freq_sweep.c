@@ -1,146 +1,126 @@
-/**
-\brief This program lets SCuM transmit BLE packets over a range of 
-    frequency settings.
-*/
-
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
-#include <gpio.h>
 
-#include "scm3c_hw_interface.h"
-#include "memory_map.h"
-#include "rftimer.h"
-#include "radio.h"
 #include "ble.h"
+#include "memory_map.h"
 #include "optical.h"
+#include "radio.h"
+#include "rftimer.h"
+#include "scm3c_hw_interface.h"
+#include "tuning.h"
+
 
 //=========================== defines =========================================
 
-#define CRC_VALUE           (*((unsigned int *) 0x0000FFFC))
-#define CODE_LENGTH         (*((unsigned int *) 0x0000FFF8))
+// If true, sweep through all fine codes.
+#define BLE_TX_SWEEP_FINE true
+//  #define BLE_TX_SWEEP_FINE false
+#define BLE_CALIBRATE_LC true
 
-#define CHANNEL             37       // ble channel
+// BLE TX period in milliseconds.
+#define BLE_TX_PERIOD_MS    1000  // milliseconds
+// Period for rf_timer meaure the LC count
+#define TIMER_PERIOD        500       ///< 500 = 1ms@500kHz
 
-#define TXPOWER             0xD8    // used for ibeacon pkt
+#define BLE_SEND_CHANNEL 0
 
-#define NUMPKT_PER_CFG      5
-#define STEPS_PER_CONFIG    32
-#define TIMER_PERIOD        1000  // 500 = 1ms@500kHz
-
-// only this coarse settings are swept, 
-// channel 37 and 0 are known within the setting scope of coarse=24
-#define CFG_COARSE          23
-
-#define HS_3
-
-#ifdef TEST
-    #define MID_START   0
-    #define MID_END     32
-#endif
-
-#ifdef HS_2
-    #define MID_START   15
-    #define MID_END     20
-#endif
-
-#ifdef HS_1
-    #define MID_START   0
-    #define MID_END     32
-#endif
-
-#ifdef HS_3
-    #define MID_START   0
-    #define MID_END     31
-#endif
-
-
-const static uint8_t ble_device_addr[6] = {
-    0xaa, 0xbb, 0xcc, 0xcc, 0xbb, 0xaa
-};
-
-const static uint8_t ble_uuid[16]       = {
-
-    0xcf, 0xcf, 0xcf, 0xcf, 0xcf, 0xcf, 0xcf, 0xcf,
-    0xcf, 0xcf, 0xcf, 0xcf, 0xcf, 0xcf, 0xcf, 0xcf
-};
+#define NUM_SAMPLES 5
+#define STEPS_PER_CONFIG 32
 
 //=========================== variables =======================================
 
-typedef struct {
-    uint8_t         tx_coarse;
-    uint8_t         tx_mid;
-    uint8_t         tx_fine;
-    
-    bool            sendDone;
-    
-    uint8_t         pdu[PDU_LENGTH+CRC_LENGTH]; // protocol data unit
-    uint8_t         pdu_len;
-} app_vars_t;
+// BLE TX tuning code.
+static tuning_code_t g_ble_tx_tuning_code = {
+    .coarse = 22,
+    .mid = 28,
+    .fine = 19,
+};
 
-app_vars_t app_vars;
+typedef struct {
+    uint32_t samples[NUM_SAMPLES];
+    uint8_t sample_index;
+} app_vars_t;
+static app_vars_t app_vars;
+
+// BLE TX trigger.
+static bool g_ble_tx_trigger = true;
+
 
 //=========================== prototypes ======================================
+extern optical_vars_t optical_vars;
+void   cb_timer(void);
+uint32_t     average_sample(void);
+void     update_configuration(void);
 
-void    cb_endFrame_tx(uint32_t timestamp);
-void    cb_timer(void);
+//=========================== functions =======================================
 
-uint8_t prepare_pdu_nordic_aoa_beacon(void);
-uint8_t prepare_pdu_ibeacon(void);
-uint8_t prepare_pdu_cte_inline(void);
-uint8_t prepare_freq_setting_pdu(uint8_t coarse, uint8_t mid, uint8_t fine);
-void    delay_tx(void);
-void    delay_lc_setup(void);
+// Transmit BLE packets.
+static inline void ble_tx_trigger(void) {
+#if BLE_TX_SWEEP_FINE
+    for (uint8_t tx_fine_code = TUNING_MIN_CODE;
+         tx_fine_code <= TUNING_MAX_CODE; ++tx_fine_code) {
+        g_ble_tx_tuning_code.fine = tx_fine_code;
+        tuning_tune_radio(&g_ble_tx_tuning_code);
+        printf("Transmitting BLE packet on %u.%u.%u.\n",
+               g_ble_tx_tuning_code.coarse, g_ble_tx_tuning_code.mid,
+               g_ble_tx_tuning_code.fine);
 
-//=========================== main ============================================
+        // Wait for the frequency to settle.
+        for (uint32_t t = 0; t < 5000; ++t);
+
+        ble_transmit();
+    }
+#else    // !BLE_TX_SWEEP_FINE
+    tuning_tune_radio(&g_ble_tx_tuning_code);
+    printf("Setting %u.%u.%u.\n",
+           g_ble_tx_tuning_code.coarse, g_ble_tx_tuning_code.mid,
+           g_ble_tx_tuning_code.fine);
+
+    // Wait for frequency to settle.
+    for (uint32_t t = 0; t < 5000; ++t);
+
+    ble_transmit();
+#endif  // BLE_TX_SWEEP_FINE
+}
+
+static void ble_tx_rftimer_callback(void) {
+    // Trigger a BLE TX.
+    // g_ble_tx_trigger = true;
+    // After BLE tx, begin LC count compensation
+    
+}
 
 int main(void) {
-
-    uint32_t calc_crc;
-
-    uint8_t cfg_coarse;
-    uint8_t cfg_mid;
-    uint8_t cfg_fine;
-
-    uint8_t i;
-    uint8_t j;
-    uint8_t offset;
-
-    uint32_t t;
-    uint32_t count_2M, count_LC, count_adc;
-
-    memset(&app_vars, 0, sizeof(app_vars_t));
-
-    printf("Initializing...");
-
-    // Set up mote configuration
-    // This function handles all the analog scan chain setup
     initialize_mote();
+
+    // Initialize BLE TX.
+    printf("Initializing BLE TX.\n");
+    ble_init();
     ble_init_tx();
+		//ble_set_channel(BLE_SEND_CHANNEL);
+		//const char* my_data = "bcum";
+    //ble_set_data((const uint8_t*)my_data);
 
-    radio_setEndFrameTxCb(cb_endFrame_tx);
-    rftimer_set_callback(cb_timer);
-    
-    // Disable interrupts for the radio and rftimer
-    radio_disable_interrupts();
-    rftimer_disable_interrupts();
+    // Configure the RF timer.
+    rftimer_set_callback_by_id(ble_tx_rftimer_callback, 7);
+    rftimer_enable_interrupts();
+    rftimer_enable_interrupts_by_id(7);
 
-    // Check CRC to ensure there were no errors during optical programming
-    printf("\r\n-------------------\r\n");
-    printf("Validating program integrity...");
+    // Try to configure one another RF timer =
+    rftimer_set_callback_by_id(cb_timer, 6);
+    rftimer_enable_interrupts();
+    rftimer_enable_interrupts_by_id(6);
 
-    calc_crc = crc32c(0x0000,CODE_LENGTH);
+    analog_scan_chain_write();
+    analog_scan_chain_load();
 
-    if (calc_crc == CRC_VALUE) {
-        printf("CRC OK\r\n");
-    } else {
-        printf("\r\nProgramming Error - CRC DOES NOT MATCH - Halting Execution\r\n");
-        while(1);
-    }
+    crc_check();
+    perform_calibration();
 
-    // After bootloading the next thing that happens is frequency calibration using optical
-    printf("Calibrating frequencies...\r\n");
-
-    // Initial frequency calibration will tune the frequencies for HCLK, the RX/TX chip clocks, and the LO
-    
+#if BLE_CALIBRATE_LC
+		optical_vars.optical_cal_finished = false;
     optical_enableLCCalibration();
 
     // Turn on LO, DIV, PA, and IF
@@ -149,257 +129,106 @@ int main(void) {
     // Turn off polyphase and disable mixer
     ANALOG_CFG_REG__16 = 0x6;
 
-#if CHANNEL==37
     // For TX, LC target freq = 2.402G - 0.25M = 2.40175 GHz.
     optical_setLCTarget(250182);
-#elif CHANNEL==0
-    
-    // For TX, LC target freq = 2.404G - 0.25M = 2.40375 GHz.
-    optical_setLCTarget(250390);
 #endif
-
-    // For the LO, calibration for RX channel 11, so turn on AUX, IF, and LO LDOs
-    // by calling radio rxEnable
-    radio_rxEnable();
 
     // Enable optical SFD interrupt for optical calibration
     optical_enable();
 
     // Wait for optical cal to finish
-    while(!optical_getCalibrationFinished());
+    while (!optical_getCalibrationFinished());
 
     printf("Cal complete\r\n");
-    
-    // Enable interrupts for the radio FSM (Not working for ble)
-    radio_enable_interrupts();
 
-    radio_rfOff();
-    
-    ble_set_channel(CHANNEL);
+    // Disable static divider to save power
+    divProgram(480, 0, 0);
+
+    // Configure coarse, mid, and fine codes for TX.
+#if BLE_CALIBRATE_LC
+    g_ble_tx_tuning_code.coarse = optical_getLCCoarse();
+    g_ble_tx_tuning_code.mid = optical_getLCMid();
+    g_ble_tx_tuning_code.fine = optical_getLCFine();
+#else
+    // CHANGE THESE VALUES AFTER LC CALIBRATION.
+    app_vars.tx_coarse = 22;
+    app_vars.tx_mid = 28;
+    app_vars.tx_fine = 15;
+#endif
 		
-		//test frame in Nordic
-		ble_gen_packet();
-		
-		GPO_enables(0xFFFF);
-		GPO_control(10,10,8,0);
-		analog_scan_chain_write();
-		analog_scan_chain_load();
-    
-    
-    while (1) {
-        
-        // loop through all configuration
-        
-        // customize coarse, mid, fine values to change the sweeping range
-        for (cfg_coarse = 19; cfg_coarse < 23; cfg_coarse++) {
-        for (cfg_mid=MID_START;cfg_mid<MID_END;cfg_mid++) {
-            for (cfg_fine=0;cfg_fine<32;cfg_fine+=1) {
+    // Generate a BLE packet.
+    ble_generate_packet();
+		//ble_generate_test_packet();
 
-             
-                // Read LC count
-                // read_counters_3B(&count_2M, &count_LC, &count_adc);
+    while (true) {
+        if (g_ble_tx_trigger) {
+            printf("Triggering BLE TX.\r\n");
+            ble_tx_trigger();
+            g_ble_tx_trigger = false;
+            delay_milliseconds_asynchronous(BLE_TX_PERIOD_MS, 7);
+        }
+    }
+}
 
-                printf(
-                    "%d,%d,%d\r\n",
-                    cfg_coarse, cfg_mid, cfg_fine
-                );
-                
-                for (i=0;i<NUMPKT_PER_CFG;i++) {
-                    
-                    radio_rfOff();
-                    
-//                    app_vars.pdu_len = prepare_freq_setting_pdu(CFG_COARSE, cfg_mid, cfg_fine);
-//                    ble_prepare_packt(&app_vars.pdu[0], app_vars.pdu_len);
-                    
-                    LC_FREQCHANGE(cfg_coarse, cfg_mid, cfg_fine);
-                    
-                    delay_lc_setup();
-                    
-                    ble_load_tx_arb_fifo();
-                    radio_txEnable();
-                    
-                    delay_tx();
-                    
-                    ble_txNow_tx_arb_fifo();
-                    
-                    // need to make sure the tx is done before 
-                    // starting a new transmission
-                    
-                    rftimer_setCompareIn(rftimer_readCounter()+TIMER_PERIOD);
-                    app_vars.sendDone = false;
-                    while (app_vars.sendDone==false);
-                }
+
+uint32_t     average_sample(void){
+    uint8_t i;
+    uint32_t avg;
+    
+    avg = 0;
+    for (i=0;i<NUM_SAMPLES;i++) {
+        avg += app_vars.samples[i];
+    }
+    avg = avg/NUM_SAMPLES;
+    return avg;
+}
+
+void     update_configuration(void){
+    g_ble_tx_tuning_code.fine++;
+    if (g_ble_tx_tuning_code.fine==STEPS_PER_CONFIG){
+        g_ble_tx_tuning_code.fine = 0;
+        g_ble_tx_tuning_code.mid++;
+        if (g_ble_tx_tuning_code.mid==STEPS_PER_CONFIG){
+            g_ble_tx_tuning_code.mid = 0;
+            g_ble_tx_tuning_code.coarse++;
+            if (g_ble_tx_tuning_code.coarse==STEPS_PER_CONFIG){
+                g_ble_tx_tuning_code.coarse = 0;
             }
         }
     }
+}
+
+void    cb_timer(void) {
+    
+    uint32_t delay;
+    
+    uint32_t avg_sample;
+    uint32_t count_2M;
+    uint32_t count_LC;
+    uint32_t count_adc;
+    
+    rftimer_setCompareIn(rftimer_readCounter()+TIMER_PERIOD);
+    read_counters_3B(&count_2M,&count_LC,&count_adc);
+    app_vars.samples[app_vars.sample_index] = count_LC;
+    app_vars.sample_index++;
+    if (app_vars.sample_index==NUM_SAMPLES) {
+        app_vars.sample_index = 0;
+        avg_sample = average_sample();
+        
+        printf(
+            "%d.%d.%d.%d\r\n",
+            g_ble_tx_tuning_code.coarse,
+            g_ble_tx_tuning_code.mid,
+            g_ble_tx_tuning_code.fine,
+            avg_sample
+        );
+        
+        update_configuration();
+#ifdef FREQ_SWEEP_TX
+        radio_txEnable();
+#else
+        radio_rxEnable();
+#endif
+        LC_FREQCHANGE(g_ble_tx_tuning_code.coarse, g_ble_tx_tuning_code.mid, g_ble_tx_tuning_code.fine);
     }
-}
-
-//=========================== public ==========================================
-
-//=========================== private =========================================
-
-//==== callback
-
-void cb_timer(void) {
-    app_vars.sendDone = true;
-
-}
-
-void    cb_endFrame_tx(uint32_t timestamp){
-    
-    printf("this is end of tx \r\n");
-	
-}
-
-//==== delay
-
-// 0x07ff roughly corresponds to 2.8ms
-#define TX_DELAY 0x07ff
-
-void delay_tx(void) {
-    uint16_t i;
-    for (i=0;i<TX_DELAY;i++);
-}
-
-#define LC_SETUP_DELAY 0x02ff
-
-void delay_lc_setup(void) {
-    uint16_t i;
-    for (i=0;i<LC_SETUP_DELAY;i++);
-}
-
-//==== pdu related
-
-uint8_t prepare_freq_setting_pdu(uint8_t coarse, uint8_t mid, uint8_t fine) {
-    
-    uint8_t i;
-    uint8_t j;
-    
-    uint8_t field_len;
-    
-    memset(app_vars.pdu, 0, sizeof(app_vars.pdu));
-    
-    // adv head (to be explained)
-    i = 0;
-    field_len = 0;
-    
-    app_vars.pdu[i++] = flipChar(0x20);
-    app_vars.pdu[i++] = flipChar(0x03);
-//		app_vars.pdu[i++] = 0x20;
-//    app_vars.pdu[i++] = 0x03;
-	
-    app_vars.pdu[i++] = flipChar(coarse);
-    app_vars.pdu[i++] = flipChar(mid);
-    app_vars.pdu[i++] = flipChar(fine);
-//		app_vars.pdu[i++] = flipChar(0xAB);
-//    app_vars.pdu[i++] = flipChar(0xAB);
-//    app_vars.pdu[i++] = flipChar(0xAB);
-    
-    field_len += 5;
-    
-    return field_len;
-}
-
-uint8_t prepare_pdu_cte_inline(void) {
-    
-    uint8_t i;
-    uint8_t j;
-    
-    uint8_t field_len;
-    
-    memset(app_vars.pdu, 0, sizeof(app_vars.pdu));
-    
-    // adv head (to be explained)
-    i = 0;
-    field_len = 0;
-    
-    app_vars.pdu[i++] = flipChar(0x20);
-    app_vars.pdu[i++] = flipChar(0x02);
-    
-    app_vars.pdu[i++] = flipChar(0x03);
-    app_vars.pdu[i++] = flipChar(0xdd);
-    app_vars.pdu[i++] = flipChar(0xff);
-    
-    field_len += 3;
-    
-    // the pdu length = field_len plus 2 bytes header
-    return (field_len+2);
-}
-
-uint8_t prepare_pdu_ibeacon(void) {
-    
-    uint8_t i;
-    uint8_t j;
-    
-    uint8_t field_len;
-    
-    memset(app_vars.pdu, 0, sizeof(app_vars.pdu));
-    
-    // adv head (to be explained)
-    i = 0;
-    field_len = 0;
-    
-    app_vars.pdu[i++] = flipChar(0x42);
-    i++;    // skip the length field, fill it at last
-    
-    // adv address
-    
-    for (j=6; j>0; j--) {
-        app_vars.pdu[i++] = flipChar(ble_device_addr[j-1]);
-    }
-    
-    field_len += 6;    
-    
-    app_vars.pdu[i++] = flipChar(0x1a);
-    app_vars.pdu[i++] = flipChar(0xff);
-    app_vars.pdu[i++] = flipChar(0x4c);
-    app_vars.pdu[i++] = flipChar(0x00);
-    
-    field_len += 4;
-    
-    app_vars.pdu[i++] = flipChar(0x02);
-    app_vars.pdu[i++] = flipChar(0x15);
-    for (j=16; j>0; j--) {
-        app_vars.pdu[i++] = flipChar(ble_uuid[j-1]);
-    }
-    
-    // major
-    app_vars.pdu[i++] = flipChar(0x00);
-    app_vars.pdu[i++] = flipChar(0xff);
-    // minor
-    app_vars.pdu[i++] = flipChar(0x00);
-    app_vars.pdu[i++] = flipChar(0x0f);
-    // power level
-    app_vars.pdu[i++] = flipChar(TXPOWER);
-    
-    field_len += 23;
-    
-    app_vars.pdu[1] = flipChar(field_len);
-    
-    // the pdu length = field_len plus 2 bytes header
-    return (field_len+2);
-}
-
-uint8_t prepare_pdu_nordic_aoa_beacon(void){
-
-    uint8_t i;
-    uint8_t field_len;
-    
-    memset(app_vars.pdu, 0, sizeof(app_vars.pdu));
-    
-    i         = 0;
-    
-    app_vars.pdu[i++] = flipChar(0x46);
-    app_vars.pdu[i++] = flipChar(0x06);
-    field_len = 6;
-    app_vars.pdu[i++] = flipChar(0x01);
-    app_vars.pdu[i++] = flipChar(0x02);
-    app_vars.pdu[i++] = flipChar(0x03);
-    app_vars.pdu[i++] = flipChar(0x04);
-    app_vars.pdu[i++] = flipChar(0x05);
-    app_vars.pdu[i++] = flipChar(0xc6);
-    
-    // the pdu length = field_len plus 2 bytes header
-    return (field_len+2);
 }
