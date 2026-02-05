@@ -22,7 +22,7 @@
 // BLE TX period in milliseconds.
 #define BLE_TX_PERIOD_MS    1000  // milliseconds
 // Period for rf_timer meaure the LC count
-#define TIMER_PERIOD        500       ///< 500 = 1ms@500kHz
+#define SAMPLE_TIMER_PERIOD        500       ///< 500 = 1ms@500kHz
 
 #define BLE_SEND_CHANNEL 0
 
@@ -39,10 +39,12 @@ static tuning_code_t g_ble_tx_tuning_code = {
 };
 
 typedef struct {
+    uint32_t avg_sample;
     uint32_t samples[NUM_SAMPLES];
     uint8_t sample_index;
+    bool    count_sample_after_tx;
 } app_vars_t;
-static app_vars_t app_vars;
+static volatile app_vars_t app_vars;
 
 // BLE TX trigger.
 static bool g_ble_tx_trigger = true;
@@ -52,25 +54,30 @@ static bool g_ble_tx_trigger = true;
 extern optical_vars_t optical_vars;
 void   cb_timer(void);
 uint32_t     average_sample(void);
-void     update_configuration(void);
+void   count_sample_after_ble_tx(void);
 
 //=========================== functions =======================================
 
 // Transmit BLE packets.
 static inline void ble_tx_trigger(void) {
-#if BLE_TX_SWEEP_FINE
+    uint32_t delay;
+#ifdef BLE_TX_SWEEP_FINE
+    // app_vars.count_sample_after_tx = false;
     for (uint8_t tx_fine_code = TUNING_MIN_CODE;
          tx_fine_code <= TUNING_MAX_CODE; ++tx_fine_code) {
+        gpio_7_toggle();
+        app_vars.count_sample_after_tx = false;
+        app_vars.sample_index = 0;
         g_ble_tx_tuning_code.fine = tx_fine_code;
         tuning_tune_radio(&g_ble_tx_tuning_code);
-        printf("Transmitting BLE packet on %u.%u.%u.\n",
+        printf("packet on %u.%u.%u.\n",
                g_ble_tx_tuning_code.coarse, g_ble_tx_tuning_code.mid,
                g_ble_tx_tuning_code.fine);
-
-        // Wait for the frequency to settle.
-        for (uint32_t t = 0; t < 5000; ++t);
-
         ble_transmit();
+        count_sample_after_ble_tx();
+        // Wait for some time
+        for (delay = 0; delay < 5000; ++delay);
+        
     }
 #else    // !BLE_TX_SWEEP_FINE
     tuning_tune_radio(&g_ble_tx_tuning_code);
@@ -87,7 +94,7 @@ static inline void ble_tx_trigger(void) {
 
 static void ble_tx_rftimer_callback(void) {
     // Trigger a BLE TX.
-    // g_ble_tx_trigger = true;
+    g_ble_tx_trigger = true;
     // After BLE tx, begin LC count compensation
     
 }
@@ -119,7 +126,7 @@ int main(void) {
     crc_check();
     perform_calibration();
 
-#if BLE_CALIBRATE_LC
+#ifdef BLE_CALIBRATE_LC
 		optical_vars.optical_cal_finished = false;
     optical_enableLCCalibration();
 
@@ -142,10 +149,10 @@ int main(void) {
     printf("Cal complete\r\n");
 
     // Disable static divider to save power
-    divProgram(480, 0, 0);
+    // divProgram(480, 0, 0);
 
     // Configure coarse, mid, and fine codes for TX.
-#if BLE_CALIBRATE_LC
+#ifdef BLE_CALIBRATE_LC
     g_ble_tx_tuning_code.coarse = optical_getLCCoarse();
     g_ble_tx_tuning_code.mid = optical_getLCMid();
     g_ble_tx_tuning_code.fine = optical_getLCFine();
@@ -165,7 +172,7 @@ int main(void) {
             printf("Triggering BLE TX.\r\n");
             ble_tx_trigger();
             g_ble_tx_trigger = false;
-            delay_milliseconds_asynchronous(BLE_TX_PERIOD_MS, 7);
+            delay_milliseconds_asynchronous(10000, 7);
         }
     }
 }
@@ -183,52 +190,40 @@ uint32_t     average_sample(void){
     return avg;
 }
 
-void     update_configuration(void){
-    g_ble_tx_tuning_code.fine++;
-    if (g_ble_tx_tuning_code.fine==STEPS_PER_CONFIG){
-        g_ble_tx_tuning_code.fine = 0;
-        g_ble_tx_tuning_code.mid++;
-        if (g_ble_tx_tuning_code.mid==STEPS_PER_CONFIG){
-            g_ble_tx_tuning_code.mid = 0;
-            g_ble_tx_tuning_code.coarse++;
-            if (g_ble_tx_tuning_code.coarse==STEPS_PER_CONFIG){
-                g_ble_tx_tuning_code.coarse = 0;
-            }
-        }
-    }
-}
-
 void    cb_timer(void) {
     
-    uint32_t delay;
-    
-    uint32_t avg_sample;
     uint32_t count_2M;
     uint32_t count_LC;
     uint32_t count_adc;
-    
-    rftimer_setCompareIn(rftimer_readCounter()+TIMER_PERIOD);
+   
     read_counters_3B(&count_2M,&count_LC,&count_adc);
-    app_vars.samples[app_vars.sample_index] = count_LC;
-    app_vars.sample_index++;
-    if (app_vars.sample_index==NUM_SAMPLES) {
-        app_vars.sample_index = 0;
-        avg_sample = average_sample();
-        
-        printf(
-            "%d.%d.%d.%d\r\n",
-            g_ble_tx_tuning_code.coarse,
-            g_ble_tx_tuning_code.mid,
-            g_ble_tx_tuning_code.fine,
-            avg_sample
-        );
-        
-        update_configuration();
-#ifdef FREQ_SWEEP_TX
-        radio_txEnable();
-#else
-        radio_rxEnable();
-#endif
-        LC_FREQCHANGE(g_ble_tx_tuning_code.coarse, g_ble_tx_tuning_code.mid, g_ble_tx_tuning_code.fine);
+    gpio_6_toggle();
+    if (app_vars.sample_index < NUM_SAMPLES) {
+        rftimer_setCompareIn_by_id(rftimer_readCounter()+SAMPLE_TIMER_PERIOD, 6);
+        app_vars.samples[app_vars.sample_index] = count_LC;
+        app_vars.sample_index++;
+    } else {
+        app_vars.count_sample_after_tx = true;
     }
+}
+
+void    count_sample_after_ble_tx(void) {
+    app_vars.avg_sample = average_sample();
+    gpio_5_toggle();
+
+    // Enable all counters
+    ANALOG_CFG_REG__0 = 0x3FFF;
+
+    rftimer_setCompareIn_by_id(rftimer_readCounter() + SAMPLE_TIMER_PERIOD, 6);
+    while (app_vars.count_sample_after_tx==false);
+    
+    // Disable all counters
+    ANALOG_CFG_REG__0 = 0x007F;
+    // Reset all counters
+    ANALOG_CFG_REG__0 = 0x0000;
+
+    printf(
+        "->%d\r\n",
+        app_vars.avg_sample
+    );
 }
