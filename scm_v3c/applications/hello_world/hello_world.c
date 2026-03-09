@@ -35,6 +35,7 @@ int main(void) {
     while (1) {
         printf("Hello World! %d\n", app_vars.count);
         app_vars.count += 1;
+        gpio_0_toggle();
 
         for (i = 0; i < 1000000; i++)
             ;
